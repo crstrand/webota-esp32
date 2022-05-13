@@ -8,21 +8,27 @@
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <Update.h>
+#include "IoT.h"
 
 // location of firmware file on external web server
 // change to your actual .bin location
-#define HOST "http://server.com/esp32fw.bin"
+#define HOST "https://git.strantech.ca/esp32fw.bin"
 
 HTTPClient client;
 // Your WiFi credentials
-const char* ssid = "Your WiFi SSID";
-const char* password = "Your WiFi Password";
+//const char* ssid = "Your WiFi SSID";
+//const char* password = "Your WiFi Password";
+#ifdef ORIGINAL
 // Global variables
 int totalLength;       //total size of firmware
 int currentLength = 0; //current size of written firmware
+void updateFirmware(uint8_t *data, size_t len);
+#endif
 
 void setup() {
-  Serial.begin(9600);
+  Serial.begin(115200);
+
+  #ifdef ORIGINAL
   // Start WiFi connection
   WiFi.mode(WIFI_MODE_STA);        
   WiFi.begin(ssid, password);
@@ -74,11 +80,34 @@ void setup() {
     Serial.println("Cannot download firmware file. Only HTTP response 200: OK is supported. Double check firmware location #defined in HOST.");
   }
   client.end();
-  
+  #else
+  WiFi_setup();
+  fwUpdateFromServer();
+  #endif
 }
 
-void loop() {}
+void loop() 
+{
+  #ifdef USE_SERIAL
+  char cmd;
+  if(Serial.available())
+  {
+    cmd = Serial.read();
+    switch (cmd)
+    {
+      case 'r':
+        Serial.println("Checking server for fw...\n");
+        fwUpdateFromServer();
+        break;
+      default:
+        Serial.println("r - read firmware version from server");
+    }
+  }
+  #endif
+  delay(100);
+}
 
+#ifdef ORIGINAL
 // Function to update firmware incrementally
 // Buffer is declared to be 128 so chunks of 128 bytes
 // from firmware is written to device until server closes
@@ -94,3 +123,4 @@ void updateFirmware(uint8_t *data, size_t len){
   // Restart ESP32 to see changes 
   ESP.restart();
 }
+#endif
