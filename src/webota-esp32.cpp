@@ -10,13 +10,24 @@
 #include <Update.h>
 #include "IoT.h"
 
+void printVersion()
+{
+  if(Serial)
+  {
+    Serial.printf("Compiled on %s %s\n",__DATE__, __TIME__);
+  }
+}
+
 void setup() {
   Serial.begin(115200);
+  Serial.println("version 1.0.3");
 
   WiFi_setup();
-//  fwVersionFromServer();
-  fwUpdateFromServer();
+  checkForNewFirmware();
+  //fwUpdateFromServer();
 }
+
+char none[5]={"none"};
 
 void loop() 
 {
@@ -29,7 +40,13 @@ void loop()
     {
       case 'r':
         Serial.println("Checking server for fw...\n");
-        fwVersionFromServer();
+        checkForNewFirmware();
+        break;
+      case 'v':
+        printVersion();
+        break;
+      case 's':
+        check_fw_from_server(none);
         break;
       default:
         Serial.println("r - read firmware version from server");

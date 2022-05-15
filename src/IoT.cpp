@@ -34,38 +34,21 @@ char server_reply[2000]="\0";
 static char sensorID[32] = { 0 };
 char macStr[18] = { 0 };
 unsigned long macLong = 0;
+bool fwDownloadDone=false;
 
 #define MAX_WIFI_CONNECT_ATTEMPTS 30
 
-std::string getLastLine(char *sentence)
-{
-  std::stringstream ss(sentence);
-  std::string to, last;
-
-  if (sentence != NULL)
-  {
-    while(std::getline(ss,to,'\n')){
-      //cout << to << endl;
-      last = to;
-    }
-    //cout << "last line\n[";
-    //cout << last;
-    //cout << "]\n" << endl;
-    return last;
-  }
-  return "";
-}
-
 bool WiFi_setup() {
   int tries = 0;
-#ifdef USE_SERIAL
+  #ifdef USE_SERIAL
   //Initialize serial and wait for port to open:
   Serial.begin(115200);
   delay(100);
-
+  #endif
+  #if defined USE_SERIAL && DEBUG>=2
   Serial.print("Attempting to connect to SSID: ");
   Serial.println(ssid);
-#endif
+  #endif
   WiFi.begin(ssid, password);
 
   // attempt to connect to Wifi network:
@@ -113,7 +96,7 @@ int postDataToServer(float howMoist, float batteryV)
     WiFi_client.print(client_request);
     delay(1000); // wait for a second for add.php to run
 
-    #ifdef USE_SERIAL
+    #if defined USE_SERIAL && DEBUG>=2
     Serial.println("--------------client_request START-------------");
     Serial.print(client_request);
     Serial.println("\n--------------client_request END-------------\n");
@@ -130,27 +113,6 @@ int postDataToServer(float howMoist, float batteryV)
 
   // Wait a second for server to start sending reply string so we don't miss some of it
   delay(1000);
-  // if there are incoming bytes available 
-  // from the server, read them and print them:
-  // The response probably contains the time from the server, so save the return string for extracting the time string
-  /*
-    --------------server_reply START-------------
-    HTTP/1.1 200 OK
-    Connection: Keep-Alive
-    Keep-Alive: timeout=5, max=100
-    content-type: text/plain
-    last-modified: Fri, 13 May 2022 17:02:10 GMT
-    etag: "41-627e8f12-2db9be8dd9eec45d;;;"
-    accept-ranges: bytes
-    content-length: 65
-    date: Fri, 13 May 2022 17:20:00 GMT
-    x-powered-by: PleskLin
-    alt-svc: h3=":443"; ma=2592000, h3-29=":443"; ma=2592000, h3-Q050=":443"; ma=2592000, h3-Q046=":443"; ma=2592000, h3-Q043=":443"; ma=2592000, quic=":443"; ma=2592000; v="43,46"
-
-    2E51197EBC54E73D6C1C9E43AF06556B3BAF140B0CFCCFF9E92BC1114B4310A1
-
-    --------------server_reply END-------------
-  */
   // create buffer for read
   Update.begin(UPDATE_SIZE_UNKNOWN);
   uint8_t buff[128] = { 0 };
@@ -160,7 +122,7 @@ int postDataToServer(float howMoist, float batteryV)
     updateFirmware(buff,num_bytes_in);
   }
   server_reply[i]=0; // null terminate the string
-  #ifdef USE_SERIAL
+  #if defined USE_SERIAL && DEBUG>=2
   Serial.print("reply length= ");
   Serial.println(strlen(server_reply));
   Serial.println("--------------server_reply START-------------");
@@ -170,87 +132,95 @@ int postDataToServer(float howMoist, float batteryV)
 
   if (WiFi_client.connected()) { 
     WiFi_client.stop();  // DISCONNECT FROM THE SERVER
-    #ifdef USE_SERIAL
+    #if defined USE_SERIAL && DEBUG>=2
     Serial.println("\nDisconnected from server");
     #endif
   }
   return 0;
 } // end of postDataToServer
 
-int fwVersionFromServer()
+/*
+  --------------server_reply START-------------
+  HTTP/1.1 200 OK\n
+  Connection: Keep-Alive
+  Keep-Alive: timeout=5, max=100
+  content-type: text/plain
+  last-modified: Fri, 13 May 2022 17:02:10 GMT
+  etag: "41-627e8f12-2db9be8dd9eec45d;;;"
+  accept-ranges: bytes
+  content-length: 65
+  date: Fri, 13 May 2022 17:20:00 GMT
+  x-powered-by: PleskLin
+  alt-svc: h3=":443"; ma=2592000, h3-29=":443"; ma=2592000, h3-Q050=":443"; ma=2592000, h3-Q046=":443"; ma=2592000, h3-Q043=":443"; ma=2592000, quic=":443"; ma=2592000; v="43,46"\n
+  \r
+  2E51197EBC54E73D6C1C9E43AF06556B3BAF140B0CFCCFF9E92BC1114B4310A1\n
+
+  --------------server_reply END-------------
+*/
+int checkForNewFirmware()
 {
-  
-  int i=0;
-  //char data[64];
-    // Connect to external web server
-  // connect to the server, post the data then disconnect
+  // Connect to external web server
   WiFi_client.setCACert(fw_strantech_root_ca);
   if (WiFi_client.connect(fwserver,443))
   {
-      String client_request = (String("GET /esp32/")+macStr+"/sha256.txt HTTP/1.1\r\n" +
-                      "Host: " + fwserver + "\r\n" +
-                      "Content-Type: text/plain\r\n" +
-                      "User-Agent: esp32/2022-05-12 webota-esp32\r\n\r\n");
-      WiFi_client.print(client_request);
+    String client_request = (String("GET /esp32/")+macStr+"/sha256.txt HTTP/1.1\r\n" +
+                    "Host: " + fwserver + "\r\n" +
+                    "Content-Type: text/plain\r\n" +
+                    "User-Agent: esp32/2022-05-12 webota-esp32\r\n\r\n");
+    WiFi_client.print(client_request);
 
-      #ifdef USE_SERIAL
-      Serial.print("--------------client_request START-------------\n[");
-      Serial.print(client_request);
-      Serial.print("]\n--------------client_request END-------------\n");
-      #endif
-
-    } 
-    else
-    {
-      #ifdef USE_SERIAL
-      Serial.print("ERROR: connecting to server ");
-      Serial.println(fwserver);
-      #endif
-      return -1;
-    }
-
-    // read header line by line.  end of header is \r
-    while (WiFi_client.connected()) {
-      String line = WiFi_client.readStringUntil('\n');
-      if (line == "\r") {
-        Serial.println("headers received");
-        break;
-      }
-      else
-      {
-        Serial.print("\n############\nheader line: ");
-        Serial.print(line);
-      }
-    }
-
-    // get the rest of the transmission (payload?, body?)
-    i=0;
-    while (WiFi_client.available() && (i<sizeof(server_reply)-1)) {
-      char c = WiFi_client.read();
-      server_reply[i++]=c;
-    }
-    server_reply[i]=0; // null terminate the string
-    #ifdef USE_SERIAL
-    Serial.print("reply length= ");
-    Serial.println(strlen(server_reply));
-    Serial.print("--------------server_reply START-------------\n[");
-    Serial.print(server_reply);
-    Serial.print("]\n--------------server_reply END-------------\n");
+    #if defined USE_SERIAL && DEBUG>=2
+    Serial.print("--------------client_request START-------------\n[");
+    Serial.print(client_request);
+    Serial.print("]\n--------------client_request END-------------\n");
     #endif
-    // parse out the SHA256 string (last line is the string we want) 64 chars + EOL
-    char server256[65] = {0};
-    strcpy(server256,getLastLine(server_reply).c_str());
-    if(!check_fw_from_server(server256))
-    {
-      // different firmware on server.  Consider updating
-      Serial.println("firmware update available");
-      fwUpdateFromServer();
-    }
+
+  } 
+  else
+  {
+    #ifdef USE_SERIAL
+    Serial.print("ERROR: connecting to server ");
+    Serial.println(fwserver);
+    #endif
+    return -1;
+  }
+
+  // read header line by line.  end of header is \r
+  // date: Sat, 14 May 2022 16:40:08 GMT\n
+  // content-length: 1475\n
+  while (WiFi_client.connected()) {
+    String line = WiFi_client.readStringUntil('\n');
+    if (line == "\r")
+      break;
+  }
+
+  // get the rest of the transmission (payload?, body?)
+  int i=0;
+  while (WiFi_client.available() && (i<sizeof(server_reply)-1)) {
+    char c = WiFi_client.read();
+    server_reply[i++]=c;
+  }
+  server_reply[i]=0; // null terminate the string
+  #if defined USE_SERIAL && DEBUG>=2
+  Serial.print("reply length= ");
+  Serial.println(strlen(server_reply));
+  Serial.print("--------------server_reply START-------------\n[");
+  Serial.print(server_reply);
+  Serial.print("]\n--------------server_reply END-------------\n");
+  #endif
+  // SHA256 should only be 64 characters long so truncate at index 64 (0-63 is the SHA256 string)
+  server_reply[64] = 0;
+  if(!check_fw_from_server(server_reply))
+  {
+    // different firmware on server.  Consider updating
+    Serial.println("firmware update required");
+    fwUpdateFromServer();
+  }
 
   if (WiFi_client.connected())
   { 
     WiFi_client.stop();  // DISCONNECT FROM THE SERVER
-    #ifdef USE_SERIAL
+    #if defined USE_SERIAL && DEBUG>=2
     Serial.println("\nDisconnected from server");
     #endif
   }
@@ -275,13 +245,14 @@ int fwUpdateFromServer()
 
   if(WiFi_client.connected())
   {
+    fwDownloadDone = false;
     String client_request = (String("GET /esp32/")+macStr+"/firmware.bin HTTP/1.1\r\n" +
                     "Host: " + fwserver + "\r\n" +
                     "Content-Type: application/octet-stream\r\n" +
                     "User-Agent: esp32/2022-05-12 webota-esp32\r\n\r\n");// +
     WiFi_client.print(client_request);
 
-    #ifdef USE_SERIAL
+    #if defined USE_SERIAL && DEBUG>=2
     Serial.print("--------------client_request START-------------\n[");
     Serial.print(client_request);
     Serial.print("]\n--------------client_request END-------------\n");
@@ -289,6 +260,11 @@ int fwUpdateFromServer()
   }
 
   // read header line by line.  end of header is \r
+  // date: Sat, 14 May 2022 16:40:08 GMT\n
+  // content-length: 1475\n
+  totalLength = 0;
+  bool firmware_available = false;
+
   while (WiFi_client.connected()) {
     String line = WiFi_client.readStringUntil('\n');
     if (line == "\r") {
@@ -297,39 +273,58 @@ int fwUpdateFromServer()
     }
     else
     {
-      Serial.print("\n############\nheader line: ");
-      Serial.print(line);
+      #if defined USE_SERIAL && DEBUG>=2
+      Serial.print("line: ");
+      Serial.println(line);
+      #endif
+      // need to parse the line looking for content-length to set totalLength for firmware update
+      if(line.indexOf("content-length")>=0)
+      {
+        String content_str = line.substring(line.indexOf(" "));
+        totalLength = content_str.toInt();
+      }
+      if(line.indexOf("404 Not Found")>=0)
+      {
+        firmware_available = false;
+        Serial.println("no firmware.bin file found on server");
+      }
+      if(line.indexOf("200 OK")>=0)
+      {
+        firmware_available = true;
+        Serial.println("firmware.bin found on server");
+      }
+
     }
   }
-
-  //Update.begin(UPDATE_SIZE_UNKNOWN);
-  uint8_t buff[128] = { 0 };
-  int total_bytes=0;
-  int num_bytes_in=0;
-  while (WiFi_client.available()) {
-    num_bytes_in = WiFi_client.read(buff,sizeof(buff));
-    Serial.print("bytes read: ");
-    Serial.println(num_bytes_in);
-    memcpy(server_reply+total_bytes,buff,num_bytes_in);
-    total_bytes+=num_bytes_in;
-    if(total_bytes>=sizeof(server_reply))
-    {
-      Serial.println("server_reply buffer full. Overwrite start of server_reply");
-      total_bytes=0;
-    }
-    //updateFirmware(buff,num_bytes_in);
-  }
-
-    server_reply[total_bytes]=0; // null terminate the string
+  if(firmware_available)
+  {
     #ifdef USE_SERIAL
-    Serial.print("reply length= ");
-    Serial.println(strlen(server_reply));
-    Serial.print("--------------server_reply START-------------\n[");
-    Serial.print(server_reply);
-    Serial.print("]\n--------------server_reply END-------------\n");
+    Serial.print("\n############\ntotalLength = ");
+    Serial.println(totalLength);
+    Serial.println();
     #endif
 
+    #if DEBUG==0
+    Update.begin(totalLength);
+    #endif
+    uint8_t buf[128] = { 0 };
+    int total_bytes=0;
+    int num_bytes_in=0;
+    while (WiFi_client.connected() && !fwDownloadDone) //WiFi_client.available()) {
+    {
+      num_bytes_in = WiFi_client.read(buf,sizeof(buf));
 
+      if(num_bytes_in>0) 
+      {
+        //Serial.print("bytes read: ");
+        //Serial.print(num_bytes_in);
+        updateFirmware(buf,num_bytes_in);
+      }
+      //else
+        //Serial.print("0");
+      delay(1);
+    }
+  }
   if (WiFi_client.connected())
   { 
     WiFi_client.stop();  // DISCONNECT FROM THE SERVER
@@ -339,27 +334,52 @@ int fwUpdateFromServer()
   }
   return 0;
   
+} // end of fwUpdateFromServer
+
+void hexdump(uint8_t *data, size_t len)
+{
+  //Serial.println("hexdump:");
+  // while debugging, we're just using text so let's just print it as-is
+  for(int i=0;i<len;i++)
+  {
+    #ifdef ASCII
+    Serial.print((char)data[i]);
+    #else
+    Serial.printf("%02X ",data[i]);
+    if((i+1)%32==0) Serial.println();
+    #endif
+  }
 }
 
 // Function to update firmware incrementally
 // Buffer is declared to be 128 so chunks of 128 bytes
 // from firmware is written to device until server closes
 void updateFirmware(uint8_t *data, size_t len){
+
+  #if DEBUG>=2
+  hexdump(data,len);
+  #elif DEBUG==0
   Update.write(data, len);
+  // Print dots as a status update while waiting for update to finish
+  #endif
+  Serial.print(".");
   currentLength += len;
-  // Print dots while waiting for update to finish
-  Serial.print('.');
   // if current length of written firmware is not equal to total firmware size, repeat
-  if(currentLength != totalLength) return;
-  Update.end(true);
+  if(currentLength < totalLength) return;
+  //Update.end(true);
   Serial.printf("\nUpdate Success, Total Size: %u\nRebooting...\n", currentLength);
-  // Restart ESP32 to see changes 
+  Update.end();
+  // Restart ESP32 to see changes
+  #if DEBUG>0
+  currentLength = 0;
+  fwDownloadDone = true;
+  #else
   ESP.restart();
+  #endif
 }
 
-void sha256_2_string(uint8_t *sha256, char *sha256str)
+void hex_2_string(uint8_t *sha256, char *sha256str)
 {
-  //sha256str[65]=0;
   for(int i=0;i<32;i++)
   {
     char hexChars[3];
@@ -388,16 +408,20 @@ bool check_fw_from_server(char *sha256fromServer)
   esp_err_t err = esp_partition_get_sha256(running_partition, run_sha256);
   if(err==ESP_OK)
   {
-    sha256_2_string(run_sha256,sha256str);
+    hex_2_string(run_sha256,sha256str);
     // compare SHA256 sums
     for(int i=0;i<sizeof(run_sha256)*2;i++)
       fw_match &= (sha256fromServer[i]==sha256str[i]);
     if(err!=ESP_OK) fw_match = false;
     #ifdef USE_SERIAL
-    Serial.print(sha256fromServer);
-    Serial.println(" server SHA does not match");
+    Serial.printf("running_partition: %s\n",  running_partition->label);
     Serial.print(sha256str);
     Serial.println(" running firmware SHA256");
+    if(strcmp(sha256fromServer,"none")!=0)
+    {
+      Serial.print(sha256fromServer);
+      Serial.println(" server SHA does not match");
+    }
     #endif
   }
   else strcpy(sha256str,"Error reading parition SHA256");

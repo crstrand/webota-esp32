@@ -6,11 +6,11 @@
 #include "esp_ota_ops.h"
 
 #define USE_SERIAL
-#define DEBUG 1
+#define DEBUG 0
 
 int postDataToServer(float howMoist, float batteryV);
 bool WiFi_setup();
-int fwVersionFromServer();
+int checkForNewFirmware();
 int fwUpdateFromServer();
 void updateFirmware(uint8_t *data, size_t len);
 void sha256_2_string(uint8_t *sha256, char *sha256str);
