@@ -9,18 +9,19 @@
 #include <HTTPClient.h>
 #include <Update.h>
 #include "IoT.h"
+#define VERSION_STRING "1.0.4"
 
 void printVersion()
 {
   if(Serial)
   {
-    Serial.printf("Compiled on %s %s\n",__DATE__, __TIME__);
+    Serial.printf("Version %s  Compiled on %s %s\n",VERSION_STRING,__DATE__, __TIME__);
   }
 }
 
 void setup() {
   Serial.begin(115200);
-  Serial.println("version 1.0.4");
+  printVersion();
 
   WiFi_setup();
   checkForNewFirmware();
