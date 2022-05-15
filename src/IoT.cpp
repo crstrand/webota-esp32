@@ -268,7 +268,7 @@ int fwUpdateFromServer()
   while (WiFi_client.connected()) {
     String line = WiFi_client.readStringUntil('\n');
     if (line == "\r") {
-      Serial.println("headers received");
+      //Serial.println("headers received");
       break;
     }
     else
@@ -299,7 +299,7 @@ int fwUpdateFromServer()
   if(firmware_available)
   {
     #ifdef USE_SERIAL
-    Serial.print("\n############\ntotalLength = ");
+    Serial.print("\nFirmware length = ");
     Serial.println(totalLength);
     Serial.println();
     #endif
@@ -366,9 +366,8 @@ void updateFirmware(uint8_t *data, size_t len){
   currentLength += len;
   // if current length of written firmware is not equal to total firmware size, repeat
   if(currentLength < totalLength) return;
-  //Update.end(true);
+  Update.end(true);
   Serial.printf("\nUpdate Success, Total Size: %u\nRebooting...\n", currentLength);
-  Update.end();
   // Restart ESP32 to see changes
   #if DEBUG>0
   currentLength = 0;
@@ -399,7 +398,7 @@ esp_err_t running_sha256(uint8_t *sha256)
 
 bool check_fw_from_server(char *sha256fromServer)
 {
-  uint8_t run_sha256[32] = {0};
+  uint8_t run_sha256[33] = {0};
   char sha256str[128];
   memset(sha256str,0,sizeof(sha256str));
   const esp_partition_t *running_partition;

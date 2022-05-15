@@ -20,7 +20,7 @@ void printVersion()
 
 void setup() {
   Serial.begin(115200);
-  Serial.println("version 1.0.3");
+  Serial.println("version 1.0.4");
 
   WiFi_setup();
   checkForNewFirmware();
