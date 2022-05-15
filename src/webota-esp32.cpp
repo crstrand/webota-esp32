@@ -9,7 +9,7 @@
 #include <HTTPClient.h>
 #include <Update.h>
 #include "IoT.h"
-#define VERSION_STRING "1.0.4"
+#define VERSION_STRING "1.0.5"
 
 void printVersion()
 {

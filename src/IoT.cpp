@@ -37,6 +37,7 @@ unsigned long macLong = 0;
 bool fwDownloadDone=false;
 
 #define MAX_WIFI_CONNECT_ATTEMPTS 30
+#define FW_DOWNLOAD_BLOCK_SIZE 1024
 
 bool WiFi_setup() {
   int tries = 0;
@@ -307,7 +308,7 @@ int fwUpdateFromServer()
     #if DEBUG==0
     Update.begin(totalLength);
     #endif
-    uint8_t buf[128] = { 0 };
+    uint8_t buf[FW_DOWNLOAD_BLOCK_SIZE] = { 0 };
     int total_bytes=0;
     int num_bytes_in=0;
     while (WiFi_client.connected() && !fwDownloadDone) //WiFi_client.available()) {
@@ -419,7 +420,8 @@ bool check_fw_from_server(char *sha256fromServer)
     if(strcmp(sha256fromServer,"none")!=0)
     {
       Serial.print(sha256fromServer);
-      Serial.println(" server SHA does not match");
+      if(!fw_match)
+        Serial.println(" server SHA does not match");
     }
     #endif
   }
