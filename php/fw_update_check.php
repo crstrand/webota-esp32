@@ -2,16 +2,37 @@
 /*Example header data:
 
 [HTTP_USER_AGENT] => ESP-http-Update
+[HTTP_X_ESP_RUNNING_SHA256] => a56f8ef78a0bebd812f62067daf1408a
 [HTTP_X_ESP_STA_MAC] => 18:FE:AA:AA:AA:AA
+// The rest are optional.
+// Retained(ish) from example https://arduino-esp8266.readthedocs.io/en/2.4.1/ota_updates/readme.html#updater-class
 [HTTP_X_ESP_AP_MAC] => 1A:FE:AA:AA:AA:AA
 [HTTP_X_ESP_FREE_SPACE] => 671744
 [HTTP_X_ESP_SKETCH_SIZE] => 373940
-[HTTP_X_ESP_SKETCH_MD5] => a56f8ef78a0bebd812f62067daf1408a
 [HTTP_X_ESP_CHIP_SIZE] => 4194304
 [HTTP_X_ESP_SDK_VERSION] => 1.3.0
 [HTTP_X_ESP_VERSION] => DOOR-7-g14f53a19
 */
 header('Content-type: text/plain; charset=utf8', true);
+
+// ################################
+//   Functions up here
+// ################################
+
+function sha_of_file($path) {
+  $sha256sum = hash_file("sha256",$path);
+  return $sha256sum;
+}
+
+function sha_from_file($path) {
+  // open file and seek to length-32bytes
+  $start_of_hash = filesize($path) - 32;
+  $fp = fopen($path, 'r');
+  fseek($fp, $start_of_hash);
+  $esp_hash = strtoupper(bin2hex(fread($fp,32)));
+  fclose($fp);
+  return $esp_hash;
+}
 
 function check_header($name, $value = false) {
     if(!isset($_SERVER[$name])) {
@@ -26,11 +47,16 @@ function check_header($name, $value = false) {
 function sendFile($path) {
     header($_SERVER["SERVER_PROTOCOL"].' 200 OK', true, 200);
     header('Content-Type: application/octet-stream', true);
-    header('Content-Disposition: attachment; filename='.basename($path));
+    //header('Content-Disposition: attachment; filename='.basename($path));
     header('Content-Length: '.filesize($path), true);
-    header('x-MD5: '.md5_file($path), true);
-    readfile($path);
+    header('x-ESP-SHA256: '.sha_from_file($path), true);
+	echo "sending ",$path;
+    //readfile($path);
 }
+
+// ################################
+//   Main code down here
+// ################################
 
 if(!check_header('HTTP_USER_AGENT', 'ESP-http-Update')) {
     header($_SERVER["SERVER_PROTOCOL"].' 403 Forbidden', true, 403);
@@ -38,39 +64,32 @@ if(!check_header('HTTP_USER_AGENT', 'ESP-http-Update')) {
     exit();
 }
 
-if(
-    !check_header('HTTP_X_ESP_STA_MAC') ||
-    !check_header('HTTP_X_ESP_AP_MAC') ||
-    !check_header('HTTP_X_ESP_FREE_SPACE') ||
-    !check_header('HTTP_X_ESP_SKETCH_SIZE') ||
-    !check_header('HTTP_X_ESP_SKETCH_MD5') ||
-    !check_header('HTTP_X_ESP_CHIP_SIZE') ||
-    !check_header('HTTP_X_ESP_SDK_VERSION')
+if( // If whatever didn't have the custom header, then ignore it
+    !check_header('HTTP_X_ESP_STA_MAC')
+	|| !check_header('HTTP_X_ESP_RUNNING_SHA256')
 ) {
     header($_SERVER["SERVER_PROTOCOL"].' 403 Forbidden', true, 403);
     echo "only for ESP updater! (header)\n";
     exit();
 }
 
-$db = array(
-    "18:FE:AA:AA:AA:AA" => "DOOR-7-g14f53a19",
-    "18:FE:AA:AA:AA:BB" => "TEMP-1.0.0"
-);
-
 if(!isset($db[$_SERVER['HTTP_X_ESP_STA_MAC']])) {
     header($_SERVER["SERVER_PROTOCOL"].' 500 ESP MAC not configured for updates', true, 500);
 }
 
-$localBinary = "./bin/".$db[$_SERVER['HTTP_X_ESP_STA_MAC']].".bin";
+$localBinary = "./esp32/".$_SERVER['HTTP_X_ESP_STA_MAC']."/firmware.bin";
+if(!file_exists($localBinary))
+{
+    header($_SERVER["SERVER_PROTOCOL"].' 404 File not found', true, 404);
+	echo "Firmware for ".$_SERVER['HTTP_X_ESP_STA_MAC']." not found on server.\n";	
+	exit();
+}
 
-// Check if version has been set and does not match, if not, check if
-// MD5 hash between local binary and ESP binary do not match if not.
-// then no update has been found.
-if((!check_header('HTTP_X_ESP_SDK_VERSION') && $db[$_SERVER['HTTP_X_ESP_STA_MAC']] != $_SERVER['HTTP_X_ESP_VERSION'])
-    || $_SERVER["HTTP_X_ESP_SKETCH_MD5"] != md5_file($localBinary)) {
+if($_SERVER["HTTP_X_ESP_RUNNING_SHA256"] != sha_from_file($localBinary)) {
+	echo "running: ".$_SERVER["HTTP_X_ESP_RUNNING_SHA256"]."\n";
+	echo "server : ".sha_from_file($localBinary)."\n";
+	//echo "file on server: ".$localBinary."\n";
     sendFile($localBinary);
 } else {
     header($_SERVER["SERVER_PROTOCOL"].' 304 Not Modified', true, 304);
 }
-
-header($_SERVER["SERVER_PROTOCOL"].' 500 no version for ESP MAC', true, 500);
