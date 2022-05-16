@@ -6,7 +6,7 @@
 #include "esp_ota_ops.h"
 
 #define USE_SERIAL
-#define DEBUG 1
+#define DEBUG 0
 #define MAX_WIFI_CONNECT_ATTEMPTS 30
 #define FW_DOWNLOAD_BLOCK_SIZE 1024 //4096 // 8192 causes a stack overflow
 

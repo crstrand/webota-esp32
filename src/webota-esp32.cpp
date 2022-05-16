@@ -9,14 +9,14 @@
 #include <HTTPClient.h>
 #include <Update.h>
 #include "IoT.h"
-#define VERSION_STRING "1.0.22"
+#define VERSION_STRING "1.1.0"
 
 #define uS_TO_S_FACTOR (uint64_t)1000000  /* Conversion factor for micro seconds to seconds */
 #define uS_IN_M_FACTOR (uint64_t)60*uS_TO_S_FACTOR
 #define _30S_in_uS uint64_t(30)*uS_TO_S_FACTOR        /* Time ESP32 will go to sleep (in seconds) */
 #define HOUR_IN_uS uint64_t(3600)*uS_TO_S_FACTOR
-#if DEBUG > 0
-#define TIME_TO_SLEEP 10*uS_TO_S_FACTOR //_30S_in_uS
+#ifdef DEBUG
+#define TIME_TO_SLEEP _30S_in_uS
 #else
 #define TIME_TO_SLEEP HOUR_IN_uS
 #endif

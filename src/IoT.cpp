@@ -298,19 +298,18 @@ int fwUpdateFromServer()
   }
   if(firmware_available)
   {
-    #ifdef USE_SERIAL
+    #if defined(USE_SERIAL) && DEBUG>0
     Serial.print("\nFirmware length = ");
     Serial.println(totalLength);
     Serial.println();
     #endif
 
-    //#if DEBUG==0
     Update.begin(UPDATE_SIZE_UNKNOWN);
-    //#endif
     uint8_t buf[FW_DOWNLOAD_BLOCK_SIZE] = { 0 };
     int total_bytes=0;
     int num_bytes_in=0;
-    while (WiFi_client.connected() && !fwDownloadDone) //WiFi_client.available()) {
+
+    while (WiFi_client.connected() && !fwDownloadDone)
     {
       num_bytes_in = WiFi_client.read(buf,sizeof(buf));
 
@@ -415,18 +414,18 @@ bool check_fw_from_server(char *sha256fromServer)
     #ifdef USE_SERIAL
       #if DEBUG>=1
       Serial.printf("running_partition: %s\n",  running_partition->label);
-      Serial.print(sha256str);
-      Serial.println(" running firmware SHA256");
+      //Serial.print(sha256str);
+      //Serial.println(" running firmware SHA256");
+      #endif
       if(strcmp(sha256fromServer,"none")!=0)
       {
-        Serial.print(sha256fromServer);
-        if(!fw_match)
-          Serial.print(" server SHA does not match");
-        Serial.println();
+        //Serial.print(sha256fromServer);
+        //if(!fw_match)
+        //  Serial.print(" server SHA does not match");
+        //Serial.println();
         if(fw_match) Serial.print("No ");
         Serial.println("firmware update required");
       }
-      #endif
     #endif
   }
   else strcpy(sha256str,"Error reading parition SHA256");
