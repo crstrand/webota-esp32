@@ -36,8 +36,7 @@ char macStr[18] = { 0 };
 unsigned long macLong = 0;
 bool fwDownloadDone=false;
 
-#define MAX_WIFI_CONNECT_ATTEMPTS 30
-#define FW_DOWNLOAD_BLOCK_SIZE 1024
+
 
 bool WiFi_setup() {
   int tries = 0;
@@ -214,7 +213,7 @@ int checkForNewFirmware()
   if(!check_fw_from_server(server_reply))
   {
     // different firmware on server.  Consider updating
-    Serial.println("firmware update required");
+    Serial.println("updating firmware...");
     fwUpdateFromServer();
   }
 
@@ -305,9 +304,9 @@ int fwUpdateFromServer()
     Serial.println();
     #endif
 
-    #if DEBUG==0
-    Update.begin(totalLength);
-    #endif
+    //#if DEBUG==0
+    Update.begin(UPDATE_SIZE_UNKNOWN);
+    //#endif
     uint8_t buf[FW_DOWNLOAD_BLOCK_SIZE] = { 0 };
     int total_bytes=0;
     int num_bytes_in=0;
@@ -359,23 +358,22 @@ void updateFirmware(uint8_t *data, size_t len){
 
   #if DEBUG>=2
   hexdump(data,len);
-  #elif DEBUG==0
-  Update.write(data, len);
-  // Print dots as a status update while waiting for update to finish
   #endif
   Serial.print(".");
+  Update.write(data, len);
+  // Print dots as a status update while waiting for update to finish
   currentLength += len;
   // if current length of written firmware is not equal to total firmware size, repeat
   if(currentLength < totalLength) return;
   Update.end(true);
-  Serial.printf("\nUpdate Success, Total Size: %u\nRebooting...\n", currentLength);
+  Serial.printf("\nUpdate Success, Total Size: %u\n", currentLength);
   // Restart ESP32 to see changes
   #if DEBUG>0
   currentLength = 0;
   fwDownloadDone = true;
-  #else
-  ESP.restart();
   #endif
+  delay(2000);
+  ESP.restart(); // HAVE to reboot or the ESP won't change app partitions
 }
 
 void hex_2_string(uint8_t *sha256, char *sha256str)
@@ -413,16 +411,22 @@ bool check_fw_from_server(char *sha256fromServer)
     for(int i=0;i<sizeof(run_sha256)*2;i++)
       fw_match &= (sha256fromServer[i]==sha256str[i]);
     if(err!=ESP_OK) fw_match = false;
+
     #ifdef USE_SERIAL
-    Serial.printf("running_partition: %s\n",  running_partition->label);
-    Serial.print(sha256str);
-    Serial.println(" running firmware SHA256");
-    if(strcmp(sha256fromServer,"none")!=0)
-    {
-      Serial.print(sha256fromServer);
-      if(!fw_match)
-        Serial.println(" server SHA does not match");
-    }
+      #if DEBUG>=1
+      Serial.printf("running_partition: %s\n",  running_partition->label);
+      Serial.print(sha256str);
+      Serial.println(" running firmware SHA256");
+      if(strcmp(sha256fromServer,"none")!=0)
+      {
+        Serial.print(sha256fromServer);
+        if(!fw_match)
+          Serial.print(" server SHA does not match");
+        Serial.println();
+        if(fw_match) Serial.print("No ");
+        Serial.println("firmware update required");
+      }
+      #endif
     #endif
   }
   else strcpy(sha256str,"Error reading parition SHA256");
