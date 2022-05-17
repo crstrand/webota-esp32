@@ -3,20 +3,17 @@
 
 #include <WiFiClientSecure.h>
 #include <Update.h>
+#include <HTTPClient.h>
 #include "esp_ota_ops.h"
 
 #define USE_SERIAL
-#define DEBUG 0
+//#define DEBUG 0
 #define MAX_WIFI_CONNECT_ATTEMPTS 30
-#define FW_DOWNLOAD_BLOCK_SIZE 1024 //4096 // 8192 causes a stack overflow
+#define FW_DOWNLOAD_BLOCK_SIZE 4096 // 8192 causes a stack overflow
 
-int postDataToServer(float howMoist, float batteryV);
 bool WiFi_setup();
-int checkForNewFirmware();
 int fwUpdateFromServer();
 void updateFirmware(uint8_t *data, size_t len);
-void sha256_2_string(uint8_t *sha256, char *sha256str);
-esp_err_t running_sha256(uint8_t *sha256);
-bool check_fw_from_server(char *sha256fromServer);
+int get_esp_sha256(char * sha256str);
 
 #endif

@@ -13,17 +13,6 @@
 #include <string>
 using namespace std;
 
-#define HOME
-#ifdef HOME
-const char* ssid     = "Strandlund_IoT";     // your network SSID (name of wifi network)
-const char* password = "3066962933"; // your network password
-#else
-const char* ssid     = "Attaguest";     // your network SSID (name of wifi network)
-const char* password = "Antonina"; // your network password
-#endif
-
-const char*  server = "botany.strantech.ca";  // Server URL
-const char*  fwserver = "fw.strantech.ca";  // Server URL
 
 // Global variables
 int totalLength;       //total size of firmware
@@ -65,79 +54,16 @@ bool WiFi_setup() {
 
   WiFi.macAddress(mac);
   sprintf(macStr, "%02X:%02X:%02X:%02X:%02X:%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
-  strcpy(sensorID,macStr);
   if (tries >= MAX_WIFI_CONNECT_ATTEMPTS) return false;
 
 #ifdef USE_SERIAL
   Serial.println();
-  Serial.print(sensorID);
+  Serial.print(macStr);
   Serial.print(" connected to ");
   Serial.println(ssid);
 #endif
   return true;
 }
-
-int postDataToServer(float howMoist, float batteryV)
-{
-  int i=0;
-  char data[64];
-  sprintf(data,"sid1=%s&moist1=%s&bat1=%s",macStr,String(howMoist,1),String(batteryV,2));
-#ifdef USE_SERIAL
-  Serial.println(data);
-#endif
-  // connect to the server, post the data then disconnect
-  WiFi_client.setCACert(strantech_root_ca);
-  if (WiFi_client.connect(server,443)) {
-    
-    String client_request = (String("POST /add.php HTTP/1.1\r\n") +
-                     "Host: " + server + "\r\n" +
-                     "Content-Type: application/x-www-form-urlencoded\r\n" +
-                     "Content-Length: " + strlen(data) + "\r\n\r\n" + data + "\r\n\r\n");
-    WiFi_client.print(client_request);
-    delay(1000); // wait for a second for add.php to run
-
-    #if defined USE_SERIAL && DEBUG>=2
-    Serial.println("--------------client_request START-------------");
-    Serial.print(client_request);
-    Serial.println("\n--------------client_request END-------------\n");
-    #endif
-  } 
-  else
-  {
-    #ifdef USE_SERIAL
-    Serial.print("ERROR: connecting to server ");
-    Serial.println(server);
-    #endif
-    return -1;
-  }
-
-  // Wait a second for server to start sending reply string so we don't miss some of it
-  delay(1000);
-  // create buffer for read
-  Update.begin(UPDATE_SIZE_UNKNOWN);
-  uint8_t buff[128] = { 0 };
-  i=0;
-  while (WiFi_client.available()) {
-    int num_bytes_in = WiFi_client.read(buff,128);
-    updateFirmware(buff,num_bytes_in);
-  }
-  server_reply[i]=0; // null terminate the string
-  #if defined USE_SERIAL && DEBUG>=2
-  Serial.print("reply length= ");
-  Serial.println(strlen(server_reply));
-  Serial.println("--------------server_reply START-------------");
-  Serial.print(server_reply);
-  Serial.println("\n--------------server_reply END-------------\n");
-  #endif
-
-  if (WiFi_client.connected()) { 
-    WiFi_client.stop();  // DISCONNECT FROM THE SERVER
-    #if defined USE_SERIAL && DEBUG>=2
-    Serial.println("\nDisconnected from server");
-    #endif
-  }
-  return 0;
-} // end of postDataToServer
 
 /*
   --------------server_reply START-------------
@@ -157,82 +83,13 @@ int postDataToServer(float howMoist, float batteryV)
 
   --------------server_reply END-------------
 */
-int checkForNewFirmware()
-{
-  // Connect to external web server
-  WiFi_client.setCACert(fw_strantech_root_ca);
-  if (WiFi_client.connect(fwserver,443))
-  {
-    String client_request = (String("GET /esp32/")+macStr+"/sha256.txt HTTP/1.1\r\n" +
-                    "Host: " + fwserver + "\r\n" +
-                    "Content-Type: text/plain\r\n" +
-                    "User-Agent: esp32/2022-05-12 webota-esp32\r\n\r\n");
-    WiFi_client.print(client_request);
-
-    #if defined USE_SERIAL && DEBUG>=2
-    Serial.print("--------------client_request START-------------\n[");
-    Serial.print(client_request);
-    Serial.print("]\n--------------client_request END-------------\n");
-    #endif
-
-  } 
-  else
-  {
-    #ifdef USE_SERIAL
-    Serial.print("ERROR: connecting to server ");
-    Serial.println(fwserver);
-    #endif
-    return -1;
-  }
-
-  // read header line by line.  end of header is \r
-  // date: Sat, 14 May 2022 16:40:08 GMT\n
-  // content-length: 1475\n
-  while (WiFi_client.connected()) {
-    String line = WiFi_client.readStringUntil('\n');
-    if (line == "\r")
-      break;
-  }
-
-  // get the rest of the transmission (payload?, body?)
-  int i=0;
-  while (WiFi_client.available() && (i<sizeof(server_reply)-1)) {
-    char c = WiFi_client.read();
-    server_reply[i++]=c;
-  }
-  server_reply[i]=0; // null terminate the string
-  #if defined USE_SERIAL && DEBUG>=2
-  Serial.print("reply length= ");
-  Serial.println(strlen(server_reply));
-  Serial.print("--------------server_reply START-------------\n[");
-  Serial.print(server_reply);
-  Serial.print("]\n--------------server_reply END-------------\n");
-  #endif
-  // SHA256 should only be 64 characters long so truncate at index 64 (0-63 is the SHA256 string)
-  server_reply[64] = 0;
-  if(!check_fw_from_server(server_reply))
-  {
-    // different firmware on server.  Consider updating
-    Serial.println("updating firmware...");
-    fwUpdateFromServer();
-  }
-
-  if (WiFi_client.connected())
-  { 
-    WiFi_client.stop();  // DISCONNECT FROM THE SERVER
-    #if defined USE_SERIAL && DEBUG>=2
-    Serial.println("\nDisconnected from server");
-    #endif
-  }
-  return 0;
-}
 
 int fwUpdateFromServer()
 {
   // connect to the server
   if(!WiFi_client.connected())
   {
-    WiFi_client.setCACert(fw_strantech_root_ca);
+    WiFi_client.setCACert(root_ca);
     if (!WiFi_client.connect(fwserver,443))
     {
       #ifdef USE_SERIAL
@@ -245,11 +102,27 @@ int fwUpdateFromServer()
 
   if(WiFi_client.connected())
   {
+    /*
+    Send a GET to fw_update_check.php on the server with the custom header fields populated.
+    The server will respond with:
+    200 OK - returns the firmware file as an application/octet-stream
+    304 Not Modified - running firmware matches what is on the server
+    403 Forbidden - if something in the header is wrong
+    404 File not found - if the firmware file required does not exist on the server
+    500 ESP MAC not configured for updates - if the MAC passed is not in the approved list
+    */
     fwDownloadDone = false;
-    String client_request = (String("GET /esp32/")+macStr+"/firmware.bin HTTP/1.1\r\n" +
+    char sha256str[65] = {0};
+    get_esp_sha256(sha256str);
+
+    String client_request = (String(F("GET /fw_update_check.php HTTP/1.1\r\n")) +
                     "Host: " + fwserver + "\r\n" +
-                    "Content-Type: application/octet-stream\r\n" +
-                    "User-Agent: esp32/2022-05-12 webota-esp32\r\n\r\n");// +
+                    F("Content-Type: text/plain\r\n") +
+                    F("User-Agent: ESP-http-Update\r\n") +
+                    "X_ESP_STA_MAC: " + macStr + "\r\n" +
+                    "X_ESP_RUNNING_SHA256: " + sha256str + "\r\n" +
+                    "\r\n"); // blank line to indicate end of header
+                    
     WiFi_client.print(client_request);
 
     #if defined USE_SERIAL && DEBUG>=2
@@ -265,37 +138,65 @@ int fwUpdateFromServer()
   totalLength = 0;
   bool firmware_available = false;
 
+  // get status line
+  if(WiFi_client.connected())
+  {
+    String line = WiFi_client.readStringUntil('\n');
+    // first line is the Status-Line https://www.w3.org/Protocols/rfc2616/rfc2616-sec6.html#sec6.1
+    // Status-Line = HTTP-Version SP Status-Code SP Reason-Phrase CRLF
+    // HTTP/<major version>.<minor version> <integer> <string>\r\n
+
+    #if defined USE_SERIAL && DEBUG>=2
+    Serial.print("Status-Line: ");
+    Serial.println(line);
+    #endif
+    int first_separator = line.indexOf(" ");
+    int second_separator = line.indexOf(" ", first_separator+1);
+    String http_version = line.substring(0,first_separator);
+    int status_code = line.substring(first_separator+1,second_separator).toInt();
+    String reason_phrase = line.substring(second_separator+1);
+    switch(status_code)
+    {
+      case 200: // 200 OK - returns the firmware file as an application/octet-stream
+        firmware_available = true;
+        Serial.println(F("firmware update sent from server"));
+        break;
+      case 404:
+        Serial.println(F("firmware file not found on server"));
+      default: // anything other than 200 means an error
+        Serial.println(reason_phrase);
+        break;
+    }
+  }
+  // get the rest of the header
   while (WiFi_client.connected()) {
     String line = WiFi_client.readStringUntil('\n');
+    #if defined USE_SERIAL && DEBUG>=2
+    Serial.print("header-line: ");
+    Serial.println(line);
+    #endif
     if (line == "\r") {
       //Serial.println("headers received");
       break;
     }
     else
     {
-      #if defined USE_SERIAL && DEBUG>=2
-      Serial.print("line: ");
-      Serial.println(line);
-      #endif
       // need to parse the line looking for content-length to set totalLength for firmware update
+      //   content-length: 65
       if(line.indexOf("content-length")>=0)
       {
         String content_str = line.substring(line.indexOf(" "));
         totalLength = content_str.toInt();
       }
-      if(line.indexOf("404 Not Found")>=0)
+      //  date: Fri, 13 May 2022 17:20:00 GMT
+      if(line.indexOf("date")>=0)
       {
-        firmware_available = false;
-        Serial.println("no firmware.bin file found on server");
+        // parse the date string and set the time to whatever the server gives us
       }
-      if(line.indexOf("200 OK")>=0)
-      {
-        firmware_available = true;
-        Serial.println("firmware.bin found on server");
-      }
-
     }
   }
+
+  // get the firmware and update yourself
   if(firmware_available)
   {
     #if defined(USE_SERIAL) && DEBUG>0
@@ -315,12 +216,8 @@ int fwUpdateFromServer()
 
       if(num_bytes_in>0) 
       {
-        //Serial.print("bytes read: ");
-        //Serial.print(num_bytes_in);
         updateFirmware(buf,num_bytes_in);
       }
-      //else
-        //Serial.print("0");
       delay(1);
     }
   }
@@ -351,8 +248,8 @@ void hexdump(uint8_t *data, size_t len)
 }
 
 // Function to update firmware incrementally
-// Buffer is declared to be 128 so chunks of 128 bytes
-// from firmware is written to device until server closes
+// write in chunks equal to the buffer size
+// firmware is written to device until server closes
 void updateFirmware(uint8_t *data, size_t len){
 
   #if DEBUG>=2
@@ -364,72 +261,36 @@ void updateFirmware(uint8_t *data, size_t len){
   currentLength += len;
   // if current length of written firmware is not equal to total firmware size, repeat
   if(currentLength < totalLength) return;
-  Update.end(true);
+  Update.end(true); // This MUST happen to validate the firmware upload
   Serial.printf("\nUpdate Success, Total Size: %u\n", currentLength);
   // Restart ESP32 to see changes
   #if DEBUG>0
   currentLength = 0;
   fwDownloadDone = true;
   #endif
-  delay(2000);
+  delay(100); // wait X ms before restarting. Might not be required...?
   ESP.restart(); // HAVE to reboot or the ESP won't change app partitions
 }
 
-void hex_2_string(uint8_t *sha256, char *sha256str)
-{
-  for(int i=0;i<32;i++)
-  {
-    char hexChars[3];
-    sprintf(hexChars,"%02X", sha256[i]);
-    strcat(sha256str,hexChars);
-    //if((i+1)%2==0) strcat(sha256str," ");
-  }
-}
-
-esp_err_t running_sha256(uint8_t *sha256)
+int get_esp_sha256(char * sha256str)
 {
   const esp_partition_t *running_partition;
+  uint8_t sha256[32] = {0};
   running_partition = esp_ota_get_running_partition();
   esp_err_t err = esp_partition_get_sha256(running_partition, sha256);
-  return err;
-}
-
-bool check_fw_from_server(char *sha256fromServer)
-{
-  uint8_t run_sha256[33] = {0};
-  char sha256str[128];
-  memset(sha256str,0,sizeof(sha256str));
-  const esp_partition_t *running_partition;
-  bool fw_match = true;
-  running_partition = esp_ota_get_running_partition();
-  esp_err_t err = esp_partition_get_sha256(running_partition, run_sha256);
   if(err==ESP_OK)
   {
-    hex_2_string(run_sha256,sha256str);
-    // compare SHA256 sums
-    for(int i=0;i<sizeof(run_sha256)*2;i++)
-      fw_match &= (sha256fromServer[i]==sha256str[i]);
-    if(err!=ESP_OK) fw_match = false;
-
-    #ifdef USE_SERIAL
-      #if DEBUG>=1
-      Serial.printf("running_partition: %s\n",  running_partition->label);
-      //Serial.print(sha256str);
-      //Serial.println(" running firmware SHA256");
-      #endif
-      if(strcmp(sha256fromServer,"none")!=0)
-      {
-        //Serial.print(sha256fromServer);
-        //if(!fw_match)
-        //  Serial.print(" server SHA does not match");
-        //Serial.println();
-        if(fw_match) Serial.print("No ");
-        Serial.println("firmware update required");
-      }
-    #endif
+    for(int i=0;i<32;i++)
+    {
+      char hexChars[3];
+      sprintf(hexChars,"%02X", sha256[i]);
+      strcat(sha256str,hexChars);
+    }
+    return 0;
   }
-  else strcpy(sha256str,"Error reading parition SHA256");
-
-  return fw_match;
+  else
+  {
+    sprintf(sha256str,"esp_partition_get_sha256: error getting partition information");
+    return -1;
+  }
 }
-

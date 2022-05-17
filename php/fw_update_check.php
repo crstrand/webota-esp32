@@ -1,4 +1,10 @@
 <?PHP
+
+$db = array(
+  "F0:08:D1:C9:CB:F8" => "ESP32_TempSender",
+  "DE:AD:D0:0D:BA:AD" => "Fake-device"
+);
+
 /*Example header data:
 
 [HTTP_USER_AGENT] => ESP-http-Update
@@ -47,11 +53,11 @@ function check_header($name, $value = false) {
 function sendFile($path) {
     header($_SERVER["SERVER_PROTOCOL"].' 200 OK', true, 200);
     header('Content-Type: application/octet-stream', true);
-    //header('Content-Disposition: attachment; filename='.basename($path));
+    header('Content-Disposition: attachment; filename='.basename($path));
     header('Content-Length: '.filesize($path), true);
     header('x-ESP-SHA256: '.sha_from_file($path), true);
-	echo "sending ",$path;
-    //readfile($path);
+	//echo "sending ",$path;
+    readfile($path);
 }
 
 // ################################
@@ -64,7 +70,7 @@ if(!check_header('HTTP_USER_AGENT', 'ESP-http-Update')) {
     exit();
 }
 
-if( // If whatever didn't have the custom header, then ignore it
+if( // If whatever called us didn't have the custom header, then ignore it
     !check_header('HTTP_X_ESP_STA_MAC')
 	|| !check_header('HTTP_X_ESP_RUNNING_SHA256')
 ) {
@@ -74,7 +80,9 @@ if( // If whatever didn't have the custom header, then ignore it
 }
 
 if(!isset($db[$_SERVER['HTTP_X_ESP_STA_MAC']])) {
-    header($_SERVER["SERVER_PROTOCOL"].' 500 ESP MAC not configured for updates', true, 500);
+    header($_SERVER["SERVER_PROTOCOL"].' 501 ESP MAC not configured for updates', true, 500);
+	echo "ESP MAC not configured for updates\n";
+	exit();
 }
 
 $localBinary = "./esp32/".$_SERVER['HTTP_X_ESP_STA_MAC']."/firmware.bin";
@@ -86,9 +94,6 @@ if(!file_exists($localBinary))
 }
 
 if($_SERVER["HTTP_X_ESP_RUNNING_SHA256"] != sha_from_file($localBinary)) {
-	echo "running: ".$_SERVER["HTTP_X_ESP_RUNNING_SHA256"]."\n";
-	echo "server : ".sha_from_file($localBinary)."\n";
-	//echo "file on server: ".$localBinary."\n";
     sendFile($localBinary);
 } else {
     header($_SERVER["SERVER_PROTOCOL"].' 304 Not Modified', true, 304);

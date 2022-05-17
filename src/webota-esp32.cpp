@@ -9,7 +9,7 @@
 #include <HTTPClient.h>
 #include <Update.h>
 #include "IoT.h"
-#define VERSION_STRING "1.1.0"
+#define VERSION_STRING "1.1.5"
 
 #define uS_TO_S_FACTOR (uint64_t)1000000  /* Conversion factor for micro seconds to seconds */
 #define uS_IN_M_FACTOR (uint64_t)60*uS_TO_S_FACTOR
@@ -34,7 +34,7 @@ void setup() {
   printVersion();
 
   WiFi_setup();
-  checkForNewFirmware();
+  fwUpdateFromServer();
   // prep deep sleep
   Serial.printf("sleeping %d seconds until the next check for firmware\n",TIME_TO_SLEEP/uS_TO_S_FACTOR);
   esp_sleep_enable_timer_wakeup(TIME_TO_SLEEP);
@@ -43,6 +43,7 @@ void setup() {
 }
 
 char none[5]={"none"};
+char sha256str[65] = {0};
 
 void loop() 
 {
@@ -55,13 +56,13 @@ void loop()
     {
       case 'r':
         Serial.println("Checking server for fw...\n");
-        checkForNewFirmware();
+        fwUpdateFromServer();
         break;
       case 'v':
         printVersion();
         break;
       case 's':
-        check_fw_from_server(none);
+        get_esp_sha256(sha256str);
         break;
       case 'b':
         ESP.restart(); // HAVE to reboot or the ESP won't change app partitions
