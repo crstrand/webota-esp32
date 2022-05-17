@@ -1,6 +1,7 @@
 /* WebOTA.ino
  *  
  * by Roland Pelayo 
+ * PlatformIO update by Cam Strandlund
  * 
  * Update ESP32 firmware via external web server
  */
@@ -36,41 +37,13 @@ void setup() {
   WiFi_setup();
   fwUpdateFromServer();
   // prep deep sleep
-  Serial.printf("sleeping %d seconds until the next check for firmware\n",TIME_TO_SLEEP/uS_TO_S_FACTOR);
+  if(TIME_TO_SLEEP/uS_TO_S_FACTOR >= 3600)
+    Serial.printf("sleeping %d seconds until the next check for firmware\n",TIME_TO_SLEEP/uS_TO_S_FACTOR);
+  else
+    Serial.printf("sleeping %.1f hours until the next check for firmware\n",float(TIME_TO_SLEEP/HOUR_IN_uS));
   esp_sleep_enable_timer_wakeup(TIME_TO_SLEEP);
   esp_deep_sleep_start();
 
 }
 
-char none[5]={"none"};
-char sha256str[65] = {0};
-
-void loop() 
-{
-  #ifdef USE_SERIAL
-  char cmd;
-  if(Serial.available())
-  {
-    cmd = Serial.read();
-    switch (cmd)
-    {
-      case 'r':
-        Serial.println("Checking server for fw...\n");
-        fwUpdateFromServer();
-        break;
-      case 'v':
-        printVersion();
-        break;
-      case 's':
-        get_esp_sha256(sha256str);
-        break;
-      case 'b':
-        ESP.restart(); // HAVE to reboot or the ESP won't change app partitions
-        break;
-      default:
-        Serial.println("r - read firmware version from server\ns - get sha256 sum of running partition\nv - print version string\nb - reboot ESP\n");
-    }
-  }
-  #endif
-  delay(100);
-}
+void loop() {} // because of the deep sleep, this will never run

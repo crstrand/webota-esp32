@@ -1,17 +1,9 @@
 #ifndef CERT_H
 #define CERT_H
 
-#define HOME
-#ifdef HOME
-const char* ssid     = "Strandlund_IoT";     // your network SSID (name of wifi network)
-const char* password = "3066962933"; // your network password
-#else
-const char* ssid     = "Attaguest";     // your network SSID (name of wifi network)
-const char* password = "Antonina"; // your network password
-#endif
-
-const char*  server = "botany.strantech.ca";  // Server URL
-const char*  fwserver = "fw.strantech.ca";  // Server URL
+const char* ssid     = "Strandlund_IoT";    // your network SSID (name of wifi network)
+const char* password = "3066962933";        // your network password
+const char* fwserver = "fw.strantech.ca";   // Server URL
 
 const char* root_ca= \
 "-----BEGIN CERTIFICATE-----\n" \

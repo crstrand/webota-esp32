@@ -1,5 +1,6 @@
 <?PHP
 
+// Update this array to include the MAC of the device, from which, you wish to accept update requests
 $db = array(
   "F0:08:D1:C9:CB:F8" => "ESP32_TempSender",
   "DE:AD:D0:0D:BA:AD" => "Fake-device"
@@ -8,9 +9,9 @@ $db = array(
 /*Example header data:
 
 [HTTP_USER_AGENT] => ESP-http-Update
-[HTTP_X_ESP_RUNNING_SHA256] => a56f8ef78a0bebd812f62067daf1408a
+[HTTP_X_ESP_RUNNING_SHA256] => <uppercase sha256sum here>
 [HTTP_X_ESP_STA_MAC] => 18:FE:AA:AA:AA:AA
-// The rest are optional.
+// The rest are not used in this example
 // Retained(ish) from example https://arduino-esp8266.readthedocs.io/en/2.4.1/ota_updates/readme.html#updater-class
 [HTTP_X_ESP_AP_MAC] => 1A:FE:AA:AA:AA:AA
 [HTTP_X_ESP_FREE_SPACE] => 671744
