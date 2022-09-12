@@ -2,7 +2,10 @@
 
 // Update this array to include the MAC of the device, from which, you wish to accept update requests
 $db = array(
-  "F0:08:D1:C9:CB:F8" => "ESP32_TempSender",
+  "F0:08:D1:C9:CB:F8" => "ESP32_SoilMoisture_Leslie",
+  "94:B9:7E:C3:A2:50" => "ESP32_SamsonHua",
+  "30:C6:F7:31:02:90" => "Lolin32_01",
+  "30:C6:F7:31:13:10" => "Lolin32_02",
   "DE:AD:D0:0D:BA:AD" => "Fake-device"
 );
 

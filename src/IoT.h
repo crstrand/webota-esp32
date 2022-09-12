@@ -5,9 +5,10 @@
 #include <Update.h>
 #include <HTTPClient.h>
 #include "esp_ota_ops.h"
+//#include <ESP_WiFiManager.h>
 
 #define USE_SERIAL
-//#define DEBUG 0
+#define DEBUG 2
 #define MAX_WIFI_CONNECT_ATTEMPTS 30
 #define FW_DOWNLOAD_BLOCK_SIZE 4096 // 8192 causes a stack overflow
 

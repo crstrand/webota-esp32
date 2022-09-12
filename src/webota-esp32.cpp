@@ -10,7 +10,7 @@
 #include <HTTPClient.h>
 #include <Update.h>
 #include "IoT.h"
-#define VERSION_STRING "1.1.5"
+#define VERSION_STRING "1.1.6"
 
 #define uS_TO_S_FACTOR (uint64_t)1000000  /* Conversion factor for micro seconds to seconds */
 #define uS_IN_M_FACTOR (uint64_t)60*uS_TO_S_FACTOR
@@ -37,7 +37,7 @@ void setup() {
   WiFi_setup();
   fwUpdateFromServer();
   // prep deep sleep
-  if(TIME_TO_SLEEP/uS_TO_S_FACTOR >= 3600)
+  if(TIME_TO_SLEEP/uS_TO_S_FACTOR < 3600)
     Serial.printf("sleeping %d seconds until the next check for firmware\n",TIME_TO_SLEEP/uS_TO_S_FACTOR);
   else
     Serial.printf("sleeping %.1f hours until the next check for firmware\n",float(TIME_TO_SLEEP/HOUR_IN_uS));
