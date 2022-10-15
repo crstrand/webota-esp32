@@ -6,10 +6,9 @@
  * Update ESP32 firmware via external web server
  */
  
-#include <WiFi.h>
-#include <HTTPClient.h>
-#include <Update.h>
 #include "IoT.h"
+#include "fwupdate.h"
+
 #define VERSION_STRING "1.1.6"
 
 #define uS_TO_S_FACTOR (uint64_t)1000000  /* Conversion factor for micro seconds to seconds */
@@ -26,24 +25,32 @@ void printVersion()
 {
   if(Serial)
   {
-    Serial.printf("Version %s  Compiled on %s %s\n",VERSION_STRING,__DATE__, __TIME__);
+    Serial.printf("\n\nVersion %s  Compiled on %s %s\n\n",VERSION_STRING,__DATE__, __TIME__);
   }
+}
+
+void hibernate(uint64_t time_in_us) {
+  esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH,   ESP_PD_OPTION_OFF);
+  esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_SLOW_MEM, ESP_PD_OPTION_OFF);
+  esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_FAST_MEM, ESP_PD_OPTION_OFF);
+  esp_sleep_pd_config(ESP_PD_DOMAIN_XTAL,         ESP_PD_OPTION_OFF);
+
+  esp_sleep_enable_timer_wakeup(time_in_us);
+  esp_deep_sleep_start();
 }
 
 void setup() {
   Serial.begin(115200);
   printVersion();
 
-  WiFi_setup();
-  fwUpdateFromServer();
+  if(WiFi_setup())
+    fwUpdateFromServer(macStr);
   // prep deep sleep
   if(TIME_TO_SLEEP/uS_TO_S_FACTOR < 3600)
-    Serial.printf("sleeping %d seconds until the next check for firmware\n",TIME_TO_SLEEP/uS_TO_S_FACTOR);
+    Serial.printf("hibernating %d seconds until the next check for firmware\n",TIME_TO_SLEEP/uS_TO_S_FACTOR);
   else
-    Serial.printf("sleeping %.1f hours until the next check for firmware\n",float(TIME_TO_SLEEP/HOUR_IN_uS));
-  esp_sleep_enable_timer_wakeup(TIME_TO_SLEEP);
-  esp_deep_sleep_start();
-
+    Serial.printf("hibernating %.1f hours until the next check for firmware\n",float(TIME_TO_SLEEP/HOUR_IN_uS));
+  hibernate(TIME_TO_SLEEP);
 }
 
 void loop() {} // because of the deep sleep, this will never run

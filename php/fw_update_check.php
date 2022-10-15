@@ -64,6 +64,32 @@ function sendFile($path) {
     readfile($path);
 }
 
+function saveToLogFile($outString) {
+	$filename = "./esp32/".$_SERVER['HTTP_X_ESP_STA_MAC']."/log.txt";
+	if (!$fp = fopen($filename, 'a')) {
+		echo "Cannot open file ($filename)";
+		exit;
+	}
+	if (fwrite($fp, date ("Y-m-d H:i:s")."\t".$outString) === FALSE) {
+		echo "Cannot write to file ($filename)";
+		exit;
+	}
+	echo "Success, wrote ($somecontent) to file ($filename)";
+	fclose($fp);
+}
+
+function saveFwInfo($filepath,$action) {
+	if (file_exists($filepath)) {
+		//$path = substr($filepath,0,strrpos($filepath, "/")+1);
+    	$fw_date = date ("Y-m-d H:i:s", filemtime($filepath));
+		$fw_hash = sha_from_file($filepath);
+
+		$logEntry = $action."\t".$filepath."\t".$fw_date."\t".$fw_hash."\r\n";
+		saveToLogFile($logEntry);
+	}
+}
+
+
 // ################################
 //   Main code down here
 // ################################
@@ -93,12 +119,16 @@ $localBinary = "./esp32/".$_SERVER['HTTP_X_ESP_STA_MAC']."/firmware.bin";
 if(!file_exists($localBinary))
 {
     header($_SERVER["SERVER_PROTOCOL"].' 404 File not found', true, 404);
-	echo "Firmware for ".$_SERVER['HTTP_X_ESP_STA_MAC']." not found on server.\n";	
+	$errorString = "Firmware for ".$_SERVER['HTTP_X_ESP_STA_MAC']." not found on server.\n";
+	saveToLogFile($errorString);
+	//echo $errorString;	
 	exit();
 }
 
 if($_SERVER["HTTP_X_ESP_RUNNING_SHA256"] != sha_from_file($localBinary)) {
     sendFile($localBinary);
+	saveInfo($localBinary,"sent");
 } else {
+	saveFwInfo($localBinary,"checked");
     header($_SERVER["SERVER_PROTOCOL"].' 304 Not Modified', true, 304);
 }
