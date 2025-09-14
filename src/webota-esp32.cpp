@@ -30,6 +30,9 @@ void printVersion()
 }
 
 void hibernate(uint64_t time_in_us) {
+  // deep sleep with all this stuff explicitly turned off is called hibernation
+  // ESP32 current draw in hibernation is about 5uA
+  // Lolin32-Lite save more mA by disabling LED1 by removing R6 (2kohm)
   esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH,   ESP_PD_OPTION_OFF);
   esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_SLOW_MEM, ESP_PD_OPTION_OFF);
   esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_FAST_MEM, ESP_PD_OPTION_OFF);
@@ -45,7 +48,6 @@ void setup() {
 
   if(WiFi_setup())
     fwUpdateFromServer(macStr);
-  // prep deep sleep
   if(TIME_TO_SLEEP/uS_TO_S_FACTOR < 3600)
     Serial.printf("hibernating %d seconds until the next check for firmware\n",TIME_TO_SLEEP/uS_TO_S_FACTOR);
   else
