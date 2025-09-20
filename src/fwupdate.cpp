@@ -1,5 +1,11 @@
 #include "fwupdate.h"
 #include "cert.h"
+#include <Update.h>
+#include <HTTPClient.h>
+#include <WiFiClientSecure.h>
+#include "esp_ota_ops.h"
+
+#define FW_DOWNLOAD_BLOCK_SIZE 4096 // 8192 causes a stack overflow
 
 /*
   fwupdate.cpp update ESP32 firmware from server
@@ -45,7 +51,7 @@ int fwUpdateFromServer(char *macStr)
   // connect to the server
   if(!WiFi_client.connected())
   {
-    WiFi_client.setCACert(root_ca);
+    WiFi_client.setCACert(strantech_root_ca); // use isrgrootx1.pem for letsencrypt instead of ever changing ca_cert.pem issued for strantech.ca
     if (!WiFi_client.connect(fwserver,443))
     {
       #ifdef USE_SERIAL

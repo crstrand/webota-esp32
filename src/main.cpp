@@ -8,6 +8,10 @@
  
 #include "IoT.h"
 #include "fwupdate.h"
+#include "Version.h"
+
+#define XSTR(x) STR(x)
+#define STR(x) #x
 
 #define VERSION_STRING "1.1.6"
 
@@ -20,6 +24,16 @@
 #else
 #define TIME_TO_SLEEP HOUR_IN_uS
 #endif
+
+void show_version_info()
+{
+  Serial.println(PROGNAME);
+  Serial.println(GIT_BRANCH);
+  Serial.println(GIT_REV);
+  Serial.println(BUILD_TIMESTAMP);
+}
+
+void show_help(void);
 
 void printVersion()
 {
@@ -44,7 +58,8 @@ void hibernate(uint64_t time_in_us) {
 
 void setup() {
   Serial.begin(115200);
-  printVersion();
+  delay(1000);
+  show_version_info();
 
   if(WiFi_setup())
     fwUpdateFromServer(macStr);

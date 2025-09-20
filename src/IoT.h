@@ -2,7 +2,8 @@
 #define IOT_H
 
 #include <Arduino.h>
-#include <WiFi.h>
+//#include <WiFi.h>
+#include <WiFiClientSecure.h>
 
 #define USE_SERIAL
 #define DEBUG 2
